@@ -153,6 +153,31 @@ export default {
       state.calibrations = [];
       state.fromDashboard = false;
     },
+
+    updatePointData(state, { pointIndex, newData }) {
+      if (state.runtime.usedPattern[pointIndex]) {
+        state.runtime.usedPattern[pointIndex] = {
+          ...state.runtime.usedPattern[pointIndex],
+          ...newData
+        };
+      }
+    },
+
+    updatePointCalibrationData(state, { pointIndex, trainingData, validationData }) {
+      const pointsPerCalibPoint = state.samplePerPoint;
+      const startIndex = pointIndex * pointsPerCalibPoint;
+      // const endIndex = startIndex + pointsPerCalibPoint;
+
+      // Update training data
+      if (trainingData) {
+        state.runtime.circleIrisPoints.splice(startIndex, pointsPerCalibPoint, ...trainingData);
+      }
+
+      // Update validation data if provided
+      if (validationData) {
+        state.runtime.calibPredictionPoints.splice(startIndex, pointsPerCalibPoint, ...validationData);
+      }
+    },
   },
   actions: {
     generateMockPattern(width, height, offset = 100) {
@@ -179,7 +204,7 @@ export default {
     },
     async saveCalib(context) {
       const state = context.state;
-      const db = firebase.firestore();
+      const db = firebase.firestore;
       const calibrationData = { ...state };
       delete calibrationData.calibrations;
       try {
@@ -314,6 +339,38 @@ export default {
       });
       return res.data;
       // console.log(res);
+    },
+
+    async recalibratePoint({ commit, state }, { pointIndex, newTrainingData }) {
+      try {
+        // Update the training data for the specific point
+        commit('updatePointCalibrationData', {
+          pointIndex,
+          trainingData: newTrainingData
+        });
+
+        // Send updated data to backend for recalculation
+        const formData = new FormData();
+        formData.append("from_ruxailab", JSON.stringify(false));
+        formData.append("file_name", JSON.stringify(state.calibName));
+        formData.append("fixed_circle_iris_points", JSON.stringify(state.runtime.circleIrisPoints));
+        formData.append("calib_circle_iris_points", JSON.stringify(state.runtime.calibPredictionPoints));
+        formData.append("screen_height", JSON.stringify(window.innerHeight));
+        formData.append("screen_width", JSON.stringify(window.innerWidth));
+        formData.append("k", JSON.stringify(state.pointNumber));
+        formData.append("model", JSON.stringify(state.models));
+
+        const res = await axios.post(`/api/session/calib_validation`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        return res.data;
+      } catch (error) {
+        console.error('Error recalibrating point:', error);
+        throw error;
+      }
     },
   },
 };

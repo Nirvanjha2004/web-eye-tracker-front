@@ -21,6 +21,9 @@
             <v-card-actions>
                 <v-spacer></v-spacer>
                 <v-btn color="blue darken-1" text @click="select">{{ selected ? 'unselect' : 'select' }}</v-btn>
+                <v-btn color="orange darken-1" text @click="recalibratePoint" :disabled="!canRecalibrate">
+                    Recalibrate Point
+                </v-btn>
                 <v-btn color="blue darken-1" text @click="auxDialog = false">close</v-btn>
                 <v-spacer></v-spacer>
             </v-card-actions>
@@ -64,6 +67,12 @@ export default {
         mockPattern() {
             return this.$store.state.calibration.mockPattern
         },
+        canRecalibrate() {
+            // For testing purposes, allow recalibration even without model
+            // In production, uncomment the model check
+            return !this.$store.state.calibration.fromDashboard
+            // return this.$store.state.detect.model && !this.$store.state.calibration.fromDashboard
+        }
     },
     data() {
         return {
@@ -91,6 +100,10 @@ export default {
         select() {
             this.$emit('select', this.pointNumber)
         },
+        recalibratePoint() {
+            this.$emit('recalibratePoint', this.pointNumber)
+            this.auxDialog = false
+        }
     }
 }
 </script>
